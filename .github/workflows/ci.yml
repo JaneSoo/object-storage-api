@@ -2,41 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
-  lint:
-    name: Code Quality
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Check Python syntax
-        run: |
-          uv venv
-          uv pip install ruff
-          source .venv/bin/activate
-          ruff check src/ tests/ || true
-
-      - name: Check code formatting
-        run: |
-          source .venv/bin/activate
-          ruff format --check src/ tests/ || true
-
   test:
-    name: Run Tests
+    name: Lint & Test
     runs-on: ubuntu-latest
-    needs: lint
 
     steps:
       - name: Checkout code
@@ -52,6 +25,12 @@ jobs:
         run: |
           uv venv
           uv pip install -r pyproject.toml --extra dev
+
+      - name: Lint code
+        run: |
+          source .venv/bin/activate
+          ruff check src/ tests/ || true
+          ruff format --check src/ tests/ || true
 
       - name: Run tests with coverage
         run: |
@@ -91,14 +70,3 @@ jobs:
           curl -f http://localhost:8080/health || exit 1
           podman stop test-container
           podman rm test-container
-
-      - name: Save container image
-        run: |
-          podman save object-storage-service:latest -o object-storage-service.tar
-
-      - name: Upload container artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: container-image
-          path: object-storage-service.tar
-          retention-days: 7
