@@ -1,0 +1,104 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Check Python syntax
+        run: |
+          uv venv
+          uv pip install ruff
+          source .venv/bin/activate
+          ruff check src/ tests/ || true
+
+      - name: Check code formatting
+        run: |
+          source .venv/bin/activate
+          ruff format --check src/ tests/ || true
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -r pyproject.toml --extra dev
+
+      - name: Run tests with coverage
+        run: |
+          source .venv/bin/activate
+          pytest --cov --cov-report=xml --cov-report=term
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  build:
+    name: Build Container
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install podman
+
+      - name: Build container image
+        run: |
+          podman build -t object-storage-service:${{ github.sha }} .
+          podman build -t object-storage-service:latest .
+
+      - name: Test container
+        run: |
+          podman run -d --name test-container -p 8080:8080 object-storage-service:latest
+          sleep 5
+          curl -f http://localhost:8080/health || exit 1
+          podman stop test-container
+          podman rm test-container
+
+      - name: Save container image
+        run: |
+          podman save object-storage-service:latest -o object-storage-service.tar
+
+      - name: Upload container artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: object-storage-service.tar
+          retention-days: 7
