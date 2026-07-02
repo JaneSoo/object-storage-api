@@ -85,6 +85,7 @@ def test_get_object(client):
 
     response = client.get('/objects/test-bucket/obj1')
     assert response.status_code == 200
+    # Object stores the body data
     assert response.data.decode('utf-8') == test_data
 
 
@@ -130,7 +131,7 @@ def test_deduplication(client):
     test_bucket = next(b for b in buckets if b['name'] == 'test-bucket')
 
     assert test_bucket['object_count'] == 2
-    assert test_bucket['unique_objects'] == 1
+    assert test_bucket['unique_objects'] == 1  # Content deduplicated
 
 
 def test_list_objects_in_bucket(client):
