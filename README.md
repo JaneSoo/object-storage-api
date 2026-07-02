@@ -2,10 +2,12 @@
 
 HTTP service for storing objects in buckets with automatic content deduplication.
 
+**Co-authored-by:** Claude (Anthropic)
+
 ## Features
 
+- Store data as objects in buckets
 - REST API for object storage (PUT, GET, DELETE)
-- Bucket-based organization
 - Content deduplication per bucket using SHA-256
 - Memory or disk storage backends
 - Fedora-based container support
@@ -15,8 +17,16 @@ HTTP service for storing objects in buckets with automatic content deduplication
 ### Using Podman
 
 ```bash
+# Build the container
 podman build -t object-storage .
+
+# Run on default port (8080)
 podman run -d -p 8080:8080 --name object-storage object-storage
+
+# Or run on custom port (e.g., 3000)
+podman run -d -p 3000:3000 -e PORT=3000 --name object-storage object-storage
+
+# Test the service
 curl http://localhost:8080/health
 ```
 
@@ -42,15 +52,18 @@ python -m src.object_storage.app
 ```bash
 PUT /objects/{bucket}/{objectID}
 
+# Store data in an object
 curl -X PUT http://localhost:8080/objects/my-bucket/obj1 \
-  -d "GET /api/users HTTP/1.1"
+  -d "some data"
 ```
 
 ### Download Object
 ```bash
 GET /objects/{bucket}/{objectID}
 
+# Retrieve stored data
 curl http://localhost:8080/objects/my-bucket/obj1
+# Returns: some data
 ```
 
 ### Delete Object
